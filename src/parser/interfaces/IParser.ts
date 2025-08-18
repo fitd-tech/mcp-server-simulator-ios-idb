@@ -3,7 +3,7 @@
 
 /**
  * IParser - Interface for natural language parser
- * 
+ *
  * This interface defines the necessary methods to interpret natural
  * language instructions and convert them into structured commands.
  */
@@ -56,10 +56,12 @@ export interface IParser {
    * Gets the list of commands supported by the parser
    * @returns List of supported commands with their descriptions
    */
-  getSupportedCommands(): Promise<Array<{
-    command: string;
-    description: string;
-    requiredParameters: string[];
-    optionalParameters: string[];
-  }>>;
+  getSupportedCommands(): Promise<
+    Array<{
+      command: string;
+      description: string;
+      requiredParameters: string[];
+      optionalParameters: string[];
+    }>
+  >;
 }

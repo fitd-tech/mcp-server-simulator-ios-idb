@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ParseResult } from '../parser/interfaces/IParser.js';
-import { 
-  CommandType, 
+import {
+  CommandType,
   IOrchestratorCommand,
-  CommandFactory
+  CommandFactory,
 } from '../orchestrator/interfaces/IOrchestratorCommand.js';
 
 /**
@@ -21,7 +21,7 @@ export class ParserToOrchestrator {
    */
   constructor(commandFactory: CommandFactory) {
     this.commandFactory = commandFactory;
-    
+
     // Mapping natural language commands to CommandType
     this.commandMappings = {
       // Simulator management commands
@@ -31,11 +31,13 @@ export class ParserToOrchestrator {
       'terminar sesión': CommandType.TERMINATE_SIMULATOR_SESSION,
       'cerrar simulador': CommandType.TERMINATE_SIMULATOR_SESSION,
       'listar simuladores': CommandType.LIST_AVAILABLE_SIMULATORS,
+      'list simulators': CommandType.LIST_AVAILABLE_SIMULATORS,
       'mostrar simuladores': CommandType.LIST_AVAILABLE_SIMULATORS,
       'listar simuladores arrancados': CommandType.LIST_BOOTED_SIMULATORS,
+      'list booted simulators': CommandType.LIST_BOOTED_SIMULATORS,
       'arrancar simulador': CommandType.BOOT_SIMULATOR,
       'apagar simulador': CommandType.SHUTDOWN_SIMULATOR,
-      
+
       // Application management commands
       'instalar app': CommandType.INSTALL_APP,
       'instalar aplicación': CommandType.INSTALL_APP,
@@ -44,27 +46,27 @@ export class ParserToOrchestrator {
       'iniciar app': CommandType.LAUNCH_APP,
       'cerrar app': CommandType.TERMINATE_APP,
       'terminar app': CommandType.TERMINATE_APP,
-      
+
       // UI interaction commands
-      'tap': CommandType.TAP,
-      'tocar': CommandType.TAP,
-      'pulsar': CommandType.TAP,
-      'swipe': CommandType.SWIPE,
-      'deslizar': CommandType.SWIPE,
-      
+      tap: CommandType.TAP,
+      tocar: CommandType.TAP,
+      pulsar: CommandType.TAP,
+      swipe: CommandType.SWIPE,
+      deslizar: CommandType.SWIPE,
+
       // Screenshot and logs commands
       'capturar pantalla': CommandType.TAKE_SCREENSHOT,
-      'screenshot': CommandType.TAKE_SCREENSHOT,
-      'captura': CommandType.TAKE_SCREENSHOT,
-      'logs': CommandType.GET_SYSTEM_LOGS,
+      screenshot: CommandType.TAKE_SCREENSHOT,
+      captura: CommandType.TAKE_SCREENSHOT,
+      logs: CommandType.GET_SYSTEM_LOGS,
       'logs del sistema': CommandType.GET_SYSTEM_LOGS,
       'logs de app': CommandType.GET_APP_LOGS,
-      
+
       // Verification commands
       'verificar simulador': CommandType.IS_SIMULATOR_BOOTED,
       'comprobar simulador': CommandType.IS_SIMULATOR_BOOTED,
       'verificar app': CommandType.IS_APP_INSTALLED,
-      'comprobar app': CommandType.IS_APP_INSTALLED
+      'comprobar app': CommandType.IS_APP_INSTALLED,
     };
   }
 
@@ -76,15 +78,29 @@ export class ParserToOrchestrator {
   public convertToCommand(parseResult: ParseResult): IOrchestratorCommand {
     // Determine command type
     const commandType = this.mapToCommandType(parseResult.command);
-    
+
     // Convert parameters
-    const parameters = this.convertParameters(commandType, parseResult.parameters);
-    
+    const parameters = this.convertParameters(
+      commandType,
+      parseResult.parameters
+    );
+
     // Create and return command
     return this.commandFactory.createCommand(
       commandType,
       parameters,
       `Command generated from: "${parseResult.originalText}"`
+    );
+  }
+
+  public convertToolCallToCommand(parser, params) {
+    const command = parser.commandRegistry.mapToolCallToCommand(params.name);
+
+    // Create and return command
+    return this.commandFactory.createCommand(
+      command,
+      params.arguments,
+      `Command generated from: "${JSON.stringify(params)}"`
     );
   }
 
@@ -95,21 +111,23 @@ export class ParserToOrchestrator {
    */
   private mapToCommandType(naturalCommand: string): CommandType {
     const lowerCommand = naturalCommand.toLowerCase();
-    
+
     // Look for exact match
     if (this.commandMappings[lowerCommand]) {
       return this.commandMappings[lowerCommand];
     }
-    
+
     // Look for partial match
     for (const [key, value] of Object.entries(this.commandMappings)) {
       if (lowerCommand.includes(key)) {
         return value;
       }
     }
-    
+
     // If no match found, throw error
-    throw new Error(`Could not map command "${naturalCommand}" to a CommandType`);
+    throw new Error(
+      `Could not map command "${naturalCommand}" to a CommandType`
+    );
   }
 
   /**
@@ -119,12 +137,12 @@ export class ParserToOrchestrator {
    * @returns Orchestrator parameters
    */
   private convertParameters(
-    commandType: CommandType, 
+    commandType: CommandType,
     parserParameters: Record<string, any>
   ): Record<string, any> {
     // Clone parameters to avoid modifying the original
     const parameters = { ...parserParameters };
-    
+
     // Convert specific parameters based on command type
     switch (commandType) {
       case CommandType.TAP:
@@ -136,7 +154,7 @@ export class ParserToOrchestrator {
           parameters.y = Number(parameters.y);
         }
         break;
-        
+
       case CommandType.SWIPE:
         // Ensure coordinates are numbers
         if (parameters.startX !== undefined) {
@@ -155,7 +173,7 @@ export class ParserToOrchestrator {
           parameters.duration = Number(parameters.duration);
         }
         break;
-        
+
       case CommandType.CREATE_SIMULATOR_SESSION:
         // Convert autoboot to boolean if it's a string
         if (typeof parameters.autoboot === 'string') {
@@ -163,7 +181,7 @@ export class ParserToOrchestrator {
         }
         break;
     }
-    
+
     return parameters;
   }
 }

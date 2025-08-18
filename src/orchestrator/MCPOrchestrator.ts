@@ -3,13 +3,13 @@
 
 import { v4 as uuidv4 } from 'uuid';
 import { IParser, ParseResult } from '../parser/interfaces/IParser.js';
-import { 
-  IOrchestratorCommand, 
-  CommandType, 
-  CommandResult, 
+import {
+  IOrchestratorCommand,
+  CommandType,
+  CommandResult,
   CommandContext,
   SequenceCommand,
-  ConditionalCommand
+  ConditionalCommand,
 } from './interfaces/IOrchestratorCommand.js';
 import { ParserToOrchestrator } from '../adapters/ParserToOrchestrator.js';
 import { OrchestratorToIDB } from '../adapters/OrchestratorToIDB.js';
@@ -26,14 +26,18 @@ class CommandFactoryImpl {
    * @param description Command description
    * @returns Created command
    */
-  createCommand(type: CommandType, parameters: Record<string, any>, description?: string): IOrchestratorCommand {
+  createCommand(
+    type: CommandType,
+    parameters: Record<string, any>,
+    description?: string
+  ): IOrchestratorCommand {
     return {
       type,
       parameters,
       id: uuidv4(),
       description,
       timeout: 30000, // 30 seconds by default
-      retries: 1      // 1 retry by default
+      retries: 1, // 1 retry by default
     };
   }
 
@@ -43,15 +47,18 @@ class CommandFactoryImpl {
    * @param stopOnError Whether to stop on error
    * @returns Sequence command
    */
-  createSequence(commands: IOrchestratorCommand[], stopOnError: boolean = true): SequenceCommand {
+  createSequence(
+    commands: IOrchestratorCommand[],
+    stopOnError: boolean = true
+  ): SequenceCommand {
     return {
       type: CommandType.SEQUENCE,
       parameters: {
         commands,
-        stopOnError
+        stopOnError,
       },
       id: uuidv4(),
-      description: `Sequence of ${commands.length} commands`
+      description: `Sequence of ${commands.length} commands`,
     };
   }
 
@@ -72,17 +79,17 @@ class CommandFactoryImpl {
       parameters: {
         condition,
         ifTrue,
-        ifFalse
+        ifFalse,
       },
       id: uuidv4(),
-      description: 'Conditional command'
+      description: 'Conditional command',
     };
   }
 }
 
 /**
  * MCP Central Orchestrator
- * 
+ *
  * Coordinates interactions between the natural language parser and the IDB manager,
  * facilitating the execution of iOS simulator commands.
  */
@@ -122,23 +129,26 @@ export class MCPOrchestrator {
     try {
       // Parse the instruction
       const parseResult = await this.parser.parseInstruction(instruction);
-      
+
       // Validate the instruction
-      const validationResult = await this.parser.validateInstruction(parseResult);
+      const validationResult =
+        await this.parser.validateInstruction(parseResult);
       if (!validationResult.isValid) {
         return {
           success: false,
           error: validationResult.errorMessage || 'Invalid instruction',
-          timestamp: Date.now()
+          timestamp: Date.now(),
         };
       }
-      
+
       // Normalize parameters
-      const normalizedResult = await this.parser.normalizeParameters(parseResult);
-      
+      const normalizedResult =
+        await this.parser.normalizeParameters(parseResult);
+
       // Convert to orchestrator command
-      const command = this.parserToOrchestrator.convertToCommand(normalizedResult);
-      
+      const command =
+        this.parserToOrchestrator.convertToCommand(normalizedResult);
+
       // Execute the command
       return this.executeCommand(command);
     } catch (error: any) {
@@ -146,9 +156,17 @@ export class MCPOrchestrator {
       return {
         success: false,
         error: error.message || 'Unknown error',
-        timestamp: Date.now()
+        timestamp: Date.now(),
       };
     }
+  }
+
+  processAgentToolCall(parser, params) {
+    const commandResult = this.parserToOrchestrator.convertToolCallToCommand(
+      parser,
+      params
+    );
+    return this.executeCommand(commandResult);
   }
 
   /**
@@ -156,74 +174,88 @@ export class MCPOrchestrator {
    * @param command Command to execute
    * @returns Execution result
    */
-  public async executeCommand(command: IOrchestratorCommand): Promise<CommandResult> {
+  public async executeCommand(
+    command: IOrchestratorCommand
+  ): Promise<CommandResult> {
     try {
       let result: CommandResult;
-      
+
       // Execute command based on its type
       if (command.type === CommandType.SEQUENCE) {
         result = await this.executeSequenceCommand(command as SequenceCommand);
       } else if (command.type === CommandType.CONDITIONAL) {
-        result = await this.executeConditionalCommand(command as ConditionalCommand);
+        result = await this.executeConditionalCommand(
+          command as ConditionalCommand
+        );
       } else {
         // Validate parameters if validation function exists
         if (command.validate) {
-          const isValid = await command.validate({ 
-            sessionId: this.activeSessionId || undefined 
+          const isValid = await command.validate({
+            sessionId: this.activeSessionId || undefined,
           });
           if (!isValid) {
             return {
               success: false,
               error: 'Parameter validation failed',
-              timestamp: Date.now()
+              timestamp: Date.now(),
             };
           }
         }
-        
+
         // Transform parameters if transformation function exists
         if (command.transformParameters) {
-          command.parameters = await command.transformParameters({ 
-            sessionId: this.activeSessionId || undefined 
+          command.parameters = await command.transformParameters({
+            sessionId: this.activeSessionId || undefined,
           });
         }
-        
+
         // Execute the command
-        result = await this.orchestratorToIDB.executeCommand(command, this.activeSessionId || undefined);
-        
+        result = await this.orchestratorToIDB.executeCommand(
+          command,
+          this.activeSessionId || undefined
+        );
+
         // If it's a session creation command and successful, save the session ID
-        if (command.type === CommandType.CREATE_SIMULATOR_SESSION && result.success && result.data) {
+        if (
+          command.type === CommandType.CREATE_SIMULATOR_SESSION &&
+          result.success &&
+          result.data
+        ) {
           this.activeSessionId = result.data;
           this.emit('sessionCreated', { sessionId: this.activeSessionId });
         }
-        
+
         // If it's a session termination command and successful, clear the session ID
-        if (command.type === CommandType.TERMINATE_SIMULATOR_SESSION && result.success) {
+        if (
+          command.type === CommandType.TERMINATE_SIMULATOR_SESSION &&
+          result.success
+        ) {
           const oldSessionId = this.activeSessionId;
           this.activeSessionId = null;
           this.emit('sessionTerminated', { sessionId: oldSessionId });
         }
       }
-      
+
       // Save to history
       this.commandHistory.push({
         command,
         result,
-        timestamp: Date.now()
+        timestamp: Date.now(),
       });
-      
+
       // Emit command executed event
       this.emit('commandExecuted', {
         command,
-        result
+        result,
       });
-      
+
       return result;
     } catch (error: any) {
       console.error('Error executing command:', error);
       return {
         success: false,
         error: error.message || 'Unknown error',
-        timestamp: Date.now()
+        timestamp: Date.now(),
       };
     }
   }
@@ -233,47 +265,50 @@ export class MCPOrchestrator {
    * @param sequenceCommand Sequence command
    * @returns Execution result
    */
-  private async executeSequenceCommand(sequenceCommand: SequenceCommand): Promise<CommandResult> {
+  private async executeSequenceCommand(
+    sequenceCommand: SequenceCommand
+  ): Promise<CommandResult> {
     const results: CommandResult[] = [];
     const context: CommandContext = {
       sessionId: this.activeSessionId || undefined,
       previousResults: {},
-      variables: {}
+      variables: {},
     };
-    
+
     try {
       // Execute each command in sequence
       for (const command of sequenceCommand.parameters.commands) {
         const result = await this.executeCommand(command);
         results.push(result);
-        
+
         // Save result in context
         context.previousResults![command.id] = result;
-        
+
         // If there's an error and stopOnError is true, stop execution
         if (!result.success && sequenceCommand.parameters.stopOnError) {
           return {
             success: false,
             data: {
               results,
-              completedCommands: sequenceCommand.parameters.commands.indexOf(command) + 1,
-              totalCommands: sequenceCommand.parameters.commands.length
+              completedCommands:
+                sequenceCommand.parameters.commands.indexOf(command) + 1,
+              totalCommands: sequenceCommand.parameters.commands.length,
             },
             error: `Error in command ${command.id}: ${result.error}`,
-            timestamp: Date.now()
+            timestamp: Date.now(),
           };
         }
       }
-      
+
       // All commands executed successfully
       return {
         success: true,
         data: {
           results,
           completedCommands: sequenceCommand.parameters.commands.length,
-          totalCommands: sequenceCommand.parameters.commands.length
+          totalCommands: sequenceCommand.parameters.commands.length,
         },
-        timestamp: Date.now()
+        timestamp: Date.now(),
       };
     } catch (error: any) {
       console.error('Error executing sequence:', error);
@@ -282,10 +317,10 @@ export class MCPOrchestrator {
         data: {
           results,
           completedCommands: results.length,
-          totalCommands: sequenceCommand.parameters.commands.length
+          totalCommands: sequenceCommand.parameters.commands.length,
         },
         error: error.message || 'Unknown error',
-        timestamp: Date.now()
+        timestamp: Date.now(),
       };
     }
   }
@@ -295,17 +330,20 @@ export class MCPOrchestrator {
    * @param conditionalCommand Conditional command
    * @returns Execution result
    */
-  private async executeConditionalCommand(conditionalCommand: ConditionalCommand): Promise<CommandResult> {
+  private async executeConditionalCommand(
+    conditionalCommand: ConditionalCommand
+  ): Promise<CommandResult> {
     try {
       // Evaluate condition
       const context: CommandContext = {
         sessionId: this.activeSessionId || undefined,
         previousResults: {},
-        variables: {}
+        variables: {},
       };
-      
-      const conditionResult = await conditionalCommand.parameters.condition(context);
-      
+
+      const conditionResult =
+        await conditionalCommand.parameters.condition(context);
+
       // Execute corresponding command based on condition result
       if (conditionResult) {
         return this.executeCommand(conditionalCommand.parameters.ifTrue);
@@ -317,9 +355,9 @@ export class MCPOrchestrator {
           success: true,
           data: {
             conditionResult,
-            executed: false
+            executed: false,
           },
-          timestamp: Date.now()
+          timestamp: Date.now(),
         };
       }
     } catch (error: any) {
@@ -327,7 +365,7 @@ export class MCPOrchestrator {
       return {
         success: false,
         error: error.message || 'Unknown error',
-        timestamp: Date.now()
+        timestamp: Date.now(),
       };
     }
   }
@@ -388,7 +426,9 @@ export class MCPOrchestrator {
    */
   public off(event: string, listener: (data: any) => void): void {
     if (this.eventListeners[event]) {
-      this.eventListeners[event] = this.eventListeners[event].filter(l => l !== listener);
+      this.eventListeners[event] = this.eventListeners[event].filter(
+        (l) => l !== listener
+      );
     }
   }
 

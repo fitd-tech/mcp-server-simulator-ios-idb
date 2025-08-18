@@ -5,38 +5,58 @@ import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import {
   CallToolRequestSchema,
-  ErrorCode,
-  McpError,
+  ListResourcesRequestSchema,
+  ListToolsRequestSchema,
+  Tool,
 } from '@modelcontextprotocol/sdk/types.js';
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
 
 // Export implementations
 import { IDBManager } from '../idb/IDBManager.js';
 import { NLParser } from '../parser/NLParser.js';
 import { MCPOrchestrator } from '../orchestrator/MCPOrchestrator.js';
+import { CommandResult } from '../orchestrator/interfaces/IOrchestratorCommand.js';
+import { logToFile, slugify } from '../utils/utlities.js';
+import { CommandDefinition } from '../parser/commands/BaseCommandDefinition.js';
 
-// Log configuration
-// Get the directory name using ESM approach
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-// Go up two levels from the src/mcp directory to the project root
-const logsDir = path.join(__dirname, '..', '..', 'logs');
-if (!fs.existsSync(logsDir)) {
-  fs.mkdirSync(logsDir, { recursive: true });
+interface Response {
+  content: [
+    {
+      type: string;
+      text: string;
+    },
+  ];
+  isError?: boolean;
+  // These two lines are required by the setRequestHandler callback return, but not sure the the type yet
+  tools?: Tool[];
+  [x: string]: unknown;
 }
 
-// Function to write logs to file without using console
-const logToFile = (message: string, level: string = 'info') => {
-  try {
-    const timestamp = new Date().toISOString();
-    const logMessage = `${timestamp} [${level.toUpperCase()}] ${message}\n`;
-    fs.appendFileSync(path.join(logsDir, 'mcp-server.log'), logMessage);
-  } catch (error) {
-    // Not much we can do if logging fails
+interface ToolInputProperty {
+  type: string;
+  description: string;
+  enum?: string[];
+}
+
+function generateResponse(
+  responseMessage: CommandResult | Error | string,
+  isError?: boolean
+) {
+  const responseText = isError
+    ? `Error: ${responseMessage instanceof Error ? responseMessage.message : String(responseMessage)}`
+    : JSON.stringify(responseMessage);
+  const response: Response = {
+    content: [
+      {
+        type: 'text',
+        text: responseText,
+      },
+    ],
+  };
+  if (isError) {
+    response.isError = true;
   }
-};
+  return response;
+}
 
 /**
  * Create a complete MCP Server instance
@@ -47,11 +67,11 @@ export function createMCPServer() {
   const idbManager = new IDBManager();
   const parser = new NLParser();
   const orchestrator = new MCPOrchestrator(parser, idbManager);
-  
+
   return {
     idbManager,
     parser,
-    orchestrator
+    orchestrator,
   };
 }
 
@@ -61,11 +81,22 @@ export function createMCPServer() {
 class MCPSimulatorServer {
   private server: Server;
   private orchestrator: ReturnType<typeof createMCPServer>['orchestrator'];
+  private parser: ReturnType<typeof createMCPServer>['parser'];
+  private commandList: CommandDefinition[];
 
   constructor() {
     // Create component instances
-    const { orchestrator } = createMCPServer();
+    const { orchestrator, parser } = createMCPServer();
+
     this.orchestrator = orchestrator;
+    this.parser = parser;
+    this.commandList = parser.commandRegistry.commandHandlers
+      .flatMap((command) => command.definitions)
+      .map((command) => {
+        command.toolName = slugify(command.command);
+        return command;
+      })
+      .filter((command) => command.commandType);
 
     // Create MCP server
     this.server = new Server(
@@ -82,7 +113,8 @@ class MCPSimulatorServer {
     );
 
     // Register tools
-    this.registerTools();
+    this.registerResourceHandlers();
+    this.registerToolHandlers();
 
     // Handle errors
     this.server.onerror = (error) => {
@@ -101,54 +133,157 @@ class MCPSimulatorServer {
     });
   }
 
-  /**
-   * Register MCP server tools
-   */
-  private registerTools() {
-    // Main tool for processing natural language instructions
-    this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
-      if (request.params.name === 'process-instruction') {
-        const instruction = request.params.arguments?.instruction;
-        
-        if (!instruction || typeof instruction !== 'string') {
-          throw new McpError(
-            ErrorCode.InvalidParams,
-            'Text instruction is required'
-          );
-        }
+  generateToolSchema(command: CommandDefinition) {
+    function generateInputSchemaPoperties(
+      requiredParameters,
+      optionalParameters
+    ) {
+      const parameters = [...requiredParameters, ...optionalParameters];
 
-        logToFile(`Processing instruction: ${instruction}`);
-        
-        try {
-          const result = await this.orchestrator.processInstruction(instruction);
-          
-          return {
-            content: [
-              {
-                type: 'text',
-                text: JSON.stringify(result),
-              },
-            ],
-          };
-        } catch (error) {
-          logToFile(`Error processing instruction: ${error}`, 'error');
-          
-          return {
-            content: [
-              {
-                type: 'text',
-                text: `Error: ${error instanceof Error ? error.message : String(error)}`,
-              },
-            ],
-            isError: true,
-          };
-        }
+      let properties: Record<string, ToolInputProperty> = {};
+      if (!parameters.length) {
+        properties.instruction = {
+          type: 'string',
+          description:
+            'This is a placeholder property for schema purposes. This tool has no properties.',
+        };
       }
 
-      throw new McpError(
-        ErrorCode.MethodNotFound,
-        `Unknown tool: ${request.params.name}`
-      );
+      parameters.forEach((parameter) => {
+        const parameterType = command.parameterTypes?.[parameter];
+
+        if (Array.isArray(parameterType)) {
+          properties[parameter] = {
+            type: 'string',
+            description: 'Choose the relevant value.',
+            enum: parameterType as unknown as string[],
+          };
+        }
+
+        switch (parameterType) {
+          case 'string':
+            properties[parameter] = {
+              type: 'string',
+              description: 'Provide the relevant value.',
+            };
+            break;
+          case 'number':
+            properties[parameter] = {
+              type: 'number',
+              description: 'Provide the relevant value.',
+            };
+            break;
+          case 'number-array':
+            properties[parameter] = {
+              type: 'array',
+              description: 'Provide an array of numbers.',
+            };
+            break;
+          case 'string-array':
+            properties[parameter] = {
+              type: 'array',
+              description: 'Provide an array of strings.',
+            };
+            break;
+          case 'time-string':
+            properties[parameter] = {
+              type: 'string',
+              description:
+                'Provide a time string such as: 1m (1 minute), or 30s (30 seconds).',
+            };
+            break;
+          case 'boolean':
+            properties[parameter] = {
+              type: 'boolean',
+              description: 'Provide the relevant value in lowercase.',
+            };
+            break;
+          default:
+            properties[parameter] = {
+              type: 'string',
+              description:
+                'Report this to the user. This is a bug in the MCP tools definition.',
+            };
+        }
+      });
+
+      return properties;
+    }
+
+    return (
+      command && {
+        name: slugify(command.command),
+        title: command.command,
+        description: command.description,
+        inputSchema: {
+          type: 'object',
+          properties: generateInputSchemaPoperties(
+            command.requiredParameters,
+            command.optionalParameters
+          ),
+          required: command.requiredParameters,
+        },
+      }
+    );
+  }
+
+  /**
+   * Register MCP server tools and resources
+   */
+
+  private registerResourceHandlers() {
+    this.server.setRequestHandler(
+      ListResourcesRequestSchema,
+      async (request) => {
+        return {
+          resources: [
+            {
+              uri: 'https://fbidb.io/docs/commands',
+              name: 'idb-command-documentation',
+              title: 'idb Command Documentation',
+              description:
+                'These idb commands are used by the MCP server to interact with the simulator.',
+              mimeType: 'text/html',
+            },
+          ],
+        };
+      }
+    );
+
+    this.server.setRequestHandler(ListToolsRequestSchema, async (request) => ({
+      uri: 'https://fbidb.io/docs/commands',
+      name: 'idb-command-documentation',
+      title: 'idb Command Documentation',
+      mimeType: 'text/html',
+    }));
+  }
+
+  private registerToolHandlers() {
+    this.server.setRequestHandler(ListToolsRequestSchema, async (request) => {
+      return {
+        tools: [
+          ...this.commandList.map((command) =>
+            this.generateToolSchema(command)
+          ),
+        ],
+      };
+    });
+
+    // Main tool for processing MCP tool calls
+    this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
+      try {
+        const result = await this.orchestrator.processAgentToolCall(
+          this.parser,
+          request.params
+        );
+
+        return generateResponse(result);
+      } catch (error) {
+        const _error = error as unknown as string | Error;
+        logToFile(`Error processing instruction: ${error}`, 'error');
+
+        return generateResponse(_error, true);
+      }
     });
   }
 
@@ -157,11 +292,11 @@ class MCPSimulatorServer {
    */
   async start() {
     logToFile('Starting MCP server with stdio transport');
-    
+
     try {
       const transport = new StdioServerTransport();
       await this.server.connect(transport);
-      
+
       logToFile('MCP server started successfully');
     } catch (error) {
       logToFile(`Error starting MCP server: ${error}`, 'error');
@@ -174,7 +309,7 @@ class MCPSimulatorServer {
    */
   async close() {
     logToFile('Closing MCP server');
-    
+
     try {
       await this.server.close();
       logToFile('MCP server closed successfully');

@@ -3,7 +3,7 @@
 
 /**
  * IIDBManager - Interface for managing iOS simulators through idb
- * 
+ *
  * This interface defines the necessary methods to interact with iOS simulators
  * using the idb tool (https://fbidb.io/docs/commands).
  */
@@ -54,7 +54,7 @@ export interface AccessibilityInfo {
 
 export interface IIDBManager {
   // === Simulator Management ===
-  
+
   /**
    * Initializes a new simulator session
    * @param config Optional configuration for the session
@@ -135,8 +135,8 @@ export interface IIDBManager {
    * @param args Launch arguments (optional)
    */
   launchApp(
-    sessionId: string, 
-    bundleId: string, 
+    sessionId: string,
+    bundleId: string,
     env?: Record<string, string>,
     args?: string[]
   ): Promise<void>;
@@ -179,7 +179,12 @@ export interface IIDBManager {
    * @param y Y coordinate
    * @param duration Tap duration in milliseconds (optional)
    */
-  tap(sessionId: string, x: number, y: number, duration?: number): Promise<void>;
+  tap(
+    sessionId: string,
+    x: number,
+    y: number,
+    duration?: number
+  ): Promise<void>;
 
   /**
    * Performs a swipe on the screen
@@ -237,10 +242,7 @@ export interface IIDBManager {
    * @param sessionId Session ID of the simulator
    * @param keyCodes List of key codes to press sequentially
    */
-  pressKeySequence?(
-    sessionId: string,
-    keyCodes: number[]
-  ): Promise<void>;
+  pressKeySequence?(sessionId: string, keyCodes: number[]): Promise<void>;
 
   // === Accessibility ===
 
@@ -295,11 +297,11 @@ export interface IIDBManager {
    * @param options Filtering options (optional)
    * @returns System logs
    */
-  getSystemLogs(sessionId: string, options?: { 
-    bundle?: string;
-    since?: Date;
-    limit?: number;
-  }): Promise<string>;
+  getSystemLogs(
+    sessionId: string,
+    bundleId?: string,
+    timeout?: string
+  ): Promise<string>;
 
   /**
    * Gets logs for a specific application
@@ -307,7 +309,11 @@ export interface IIDBManager {
    * @param bundleId Bundle ID of the application
    * @returns Application logs
    */
-  getAppLogs(sessionId: string, bundleId: string): Promise<string>;
+  getAppLogs(
+    sessionId: string,
+    bundleId: string,
+    timeout?: string
+  ): Promise<string>;
 
   // === Debug ===
 
@@ -344,11 +350,14 @@ export interface IIDBManager {
    * @param options Filtering options (optional)
    * @returns List of crash log information
    */
-  listCrashLogs?(sessionId: string, options?: {
-    bundleId?: string;
-    before?: Date;
-    since?: Date;
-  }): Promise<CrashLogInfo[]>;
+  listCrashLogs?(
+    sessionId: string,
+    options?: {
+      bundleId?: string;
+      before?: Date;
+      since?: Date;
+    }
+  ): Promise<CrashLogInfo[]>;
 
   /**
    * Gets the content of a crash log
@@ -363,13 +372,16 @@ export interface IIDBManager {
    * @param sessionId Session ID of the simulator
    * @param options Options for deleting logs (optional)
    */
-  deleteCrashLogs?(sessionId: string, options: {
-    crashNames?: string[];
-    bundleId?: string;
-    before?: Date;
-    since?: Date;
-    all?: boolean;
-  }): Promise<void>;
+  deleteCrashLogs?(
+    sessionId: string,
+    options: {
+      crashNames?: string[];
+      bundleId?: string;
+      before?: Date;
+      since?: Date;
+      all?: boolean;
+    }
+  ): Promise<void>;
 
   // === Miscellaneous ===
 

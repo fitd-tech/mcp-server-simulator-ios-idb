@@ -1,7 +1,11 @@
 // SPDX-FileCopyrightText: © 2025 Industria de Diseño Textil S.A. INDITEX
 // SPDX-License-Identifier: Apache-2.0
 
-import { IParser, ParseResult, ValidationResult } from './interfaces/IParser.js';
+import {
+  IParser,
+  ParseResult,
+  ValidationResult,
+} from './interfaces/IParser.js';
 import { CommandRegistry } from './commands/CommandRegistry.js';
 import { SimulatorCommands } from './commands/SimulatorCommands.js';
 import { AppCommands } from './commands/AppCommands.js';
@@ -15,22 +19,25 @@ import { MiscCommands } from './commands/MiscCommands.js';
  * Natural language parser implementation
  */
 export class NLParser implements IParser {
-  private commandRegistry: CommandRegistry;
+  commandRegistry: CommandRegistry;
 
   /**
    * Constructor
    */
   constructor() {
     this.commandRegistry = new CommandRegistry();
-    
+
     // Register all command handlers
-    this.commandRegistry.registerHandler(new SimulatorCommands());
-    this.commandRegistry.registerHandler(new AppCommands());
-    this.commandRegistry.registerHandler(new UICommands());
-    this.commandRegistry.registerHandler(new AccessibilityCommands());
-    this.commandRegistry.registerHandler(new CaptureCommands());
-    this.commandRegistry.registerHandler(new DebugCommands());
-    this.commandRegistry.registerHandler(new MiscCommands());
+    this.commandRegistry.registerHandler(new SimulatorCommands(), 'simulator');
+    this.commandRegistry.registerHandler(new AppCommands(), 'app');
+    this.commandRegistry.registerHandler(new UICommands(), 'ui');
+    this.commandRegistry.registerHandler(
+      new AccessibilityCommands(),
+      'accessibility'
+    );
+    this.commandRegistry.registerHandler(new CaptureCommands(), 'capture');
+    this.commandRegistry.registerHandler(new DebugCommands(), 'debug');
+    this.commandRegistry.registerHandler(new MiscCommands(), 'misc');
   }
 
   /**
@@ -47,31 +54,35 @@ export class NLParser implements IParser {
    * @param parseResult Parsing result to validate
    * @returns Validation result
    */
-  async validateInstruction(parseResult: ParseResult): Promise<ValidationResult> {
+  async validateInstruction(
+    parseResult: ParseResult
+  ): Promise<ValidationResult> {
     // Get supported command definitions
     const supportedCommands = await this.commandRegistry.getSupportedCommands();
-    const definition = supportedCommands.find(cmd => cmd.command === parseResult.command);
-    
+    const definition = supportedCommands.find(
+      (cmd) => cmd.command === parseResult.command
+    );
+
     if (!definition) {
       return {
         isValid: false,
-        errorMessage: `Unrecognized command: ${parseResult.command}`
+        errorMessage: `Unrecognized command: ${parseResult.command}`,
       };
     }
-    
+
     // Verify required parameters
     const missingParameters = definition.requiredParameters.filter(
-      param => !(param in parseResult.parameters)
+      (param) => !(param in parseResult.parameters)
     );
-    
+
     if (missingParameters.length > 0) {
       return {
         isValid: false,
         missingParameters,
-        errorMessage: `Missing required parameters: ${missingParameters.join(', ')}`
+        errorMessage: `Missing required parameters: ${missingParameters.join(', ')}`,
       };
     }
-    
+
     // Validate parameter types
     const invalidParameters: Record<string, string> = {};
     for (const [param, value] of Object.entries(parseResult.parameters)) {
@@ -79,17 +90,17 @@ export class NLParser implements IParser {
         invalidParameters[param] = 'Value cannot be null or undefined';
       }
     }
-    
+
     if (Object.keys(invalidParameters).length > 0) {
       return {
         isValid: false,
         invalidParameters,
-        errorMessage: 'Some parameters have invalid values'
+        errorMessage: 'Some parameters have invalid values',
       };
     }
-    
+
     return {
-      isValid: true
+      isValid: true,
     };
   }
 
@@ -100,24 +111,27 @@ export class NLParser implements IParser {
    */
   async normalizeParameters(parseResult: ParseResult): Promise<ParseResult> {
     const normalizedParameters = { ...parseResult.parameters };
-    
+
     // Normalize numeric values
     for (const [key, value] of Object.entries(normalizedParameters)) {
       if (typeof value === 'string' && !isNaN(Number(value))) {
         normalizedParameters[key] = Number(value);
       }
     }
-    
+
     // Normalize booleans
     for (const [key, value] of Object.entries(normalizedParameters)) {
-      if (typeof value === 'string' && ['true', 'false'].includes(value.toLowerCase())) {
+      if (
+        typeof value === 'string' &&
+        ['true', 'false'].includes(value.toLowerCase())
+      ) {
         normalizedParameters[key] = value.toLowerCase() === 'true';
       }
     }
-    
+
     return {
       ...parseResult,
-      parameters: normalizedParameters
+      parameters: normalizedParameters,
     };
   }
 
@@ -134,12 +148,14 @@ export class NLParser implements IParser {
    * Gets the list of commands supported by the parser
    * @returns List of supported commands with their descriptions
    */
-  async getSupportedCommands(): Promise<Array<{
-    command: string;
-    description: string;
-    requiredParameters: string[];
-    optionalParameters: string[];
-  }>> {
+  async getSupportedCommands(): Promise<
+    Array<{
+      command: string;
+      description: string;
+      requiredParameters: string[];
+      optionalParameters: string[];
+    }>
+  > {
     return this.commandRegistry.getSupportedCommands();
   }
 }

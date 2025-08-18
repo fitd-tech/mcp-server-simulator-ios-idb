@@ -3,7 +3,7 @@
     "target": "ES2020",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
-    "lib": ["ES2020", "DOM"],
+    "lib": ["ES2021", "DOM"],
     "declaration": true,
     "outDir": "./dist",
     "rootDir": "./src",
@@ -20,13 +20,6 @@
   "ts-node": {
     "esm": true
   },
-  "include": [
-    "src/**/*.ts",
-    "src/**/__tests__/**/*.ts",
-    "types/**/*.d.ts"
-  ],
-  "exclude": [
-    "node_modules",
-    "dist"
-  ]
+  "include": ["src/**/*.ts", "src/**/__tests__/**/*.ts", "types/**/*.d.ts"],
+  "exclude": ["node_modules", "dist"]
 }

@@ -16,6 +16,9 @@ export interface CommandDefinition {
   parameterTypes?: {
     [parameterKey: string]: string | string[];
   };
+  parameterDescriptions?: {
+    [parameterKey: string]: string;
+  };
 }
 
 export abstract class BaseCommandDefinition {

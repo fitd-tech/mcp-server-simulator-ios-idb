@@ -7,6 +7,11 @@ import {
   CommandDefinition,
 } from './BaseCommandDefinition.js';
 
+export enum CoordinateUnits {
+  POINTS = 'points',
+  PIXELS = 'pixels'
+}
+
 export class UICommands extends BaseCommandDefinition {
   definitions: CommandDefinition[] = [
     {
@@ -19,7 +24,7 @@ export class UICommands extends BaseCommandDefinition {
       ],
       description: 'Performs a tap at the specified coordinates',
       requiredParameters: ['x', 'y'],
-      optionalParameters: ['sessionId', 'duration'],
+      optionalParameters: ['sessionId', 'duration', 'coordinateUnits'],
       examples: [
         'tap en 100, 200',
         'tocar 150, 300',
@@ -36,7 +41,16 @@ export class UICommands extends BaseCommandDefinition {
         y: 'number',
         sessionId: 'string',
         duration: 'number',
+        coordinateUnits: [
+          CoordinateUnits.POINTS,
+          CoordinateUnits.PIXELS,
+        ]
       },
+      parameterDescriptions: {
+        // x: 'Provide the exact X coordinate from the left edge of the screen in PIXELS. NEVER SCALE OR CONVERT COORDINATES. The screenshot image has exact pixel dimensions. Use the raw pixel coordinates exactly as they appear when you measure them in the image - no mathematical operations whatsoever.',
+        // y: 'Provide the exact Y coordinate from the top edge of the screen in PIXELS. NEVER SCALE OR CONVERT COORDINATES. The screenshot image has exact pixel dimensions. Use the raw pixel coordinates exactly as they appear when you measure them in the image - no mathematical operations whatsoever.'
+        coordinateUnits: 'Provide the units you are using to define your coordinates. Choose "points" or "pixels". Defaults to "points".',
+      }
     },
     {
       command: 'swipe',
@@ -51,6 +65,7 @@ export class UICommands extends BaseCommandDefinition {
         // 'duration',
         // 'delta',
         'sessionId',
+        'coordinateUnits'
       ],
       examples: [
         'swipe desde 100, 200 hasta 300, 400',
@@ -76,7 +91,18 @@ export class UICommands extends BaseCommandDefinition {
         // duration: 'number',
         // delta: 'number',
         sessionId: 'string',
+        coordinateUnits: [
+          CoordinateUnits.POINTS,
+          CoordinateUnits.PIXELS,
+        ]
       },
+      parameterDescriptions: {
+        // startX: 'Provide the beginning X coordinate from the left edge of the screen in PIXELS. NEVER SCALE OR CONVERT COORDINATES. The screenshot image has exact pixel dimensions. Use the raw pixel coordinates exactly as they appear when you measure them in the image - no mathematical operations whatsoever.',
+        // startY: 'Provide the beginning Y coordinate from the top edge of the screen in PIXELS. NEVER SCALE OR CONVERT COORDINATES. The screenshot image has exact pixel dimensions. Use the raw pixel coordinates exactly as they appear when you measure them in the image - no mathematical operations whatsoever.',
+        // endX: 'Provide the final X coordinate from the left edge of the screen in PIXELS. NEVER SCALE OR CONVERT COORDINATES. The screenshot image has exact pixel dimensions. Use the raw pixel coordinates exactly as they appear when you measure them in the image - no mathematical operations whatsoever.',
+        // endY: 'Provide the final Y coordinate from the top edge of the screen in PIXELS. NEVER SCALE OR CONVERT COORDINATES. The screenshot image has exact pixel dimensions. Use the raw pixel coordinates exactly as they appear when you measure them in the image - no mathematical operations whatsoever.',
+        coordinateUnits: 'Provide the units you are using to define your coordinates. Choose "points" or "pixels". Defaults to "points".',
+      }
     },
     {
       command: 'press device button',

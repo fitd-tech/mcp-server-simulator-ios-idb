@@ -151,6 +151,7 @@ class MCPSimulatorServer {
 
       parameters.forEach((parameter) => {
         const parameterType = command.parameterTypes?.[parameter];
+        const parameterDescription = command.parameterDescriptions?.[parameter]
 
         if (Array.isArray(parameterType)) {
           properties[parameter] = {
@@ -164,45 +165,45 @@ class MCPSimulatorServer {
           case 'string':
             properties[parameter] = {
               type: 'string',
-              description: 'Provide the relevant value.',
+              description: parameterDescription || 'Provide the relevant value.',
             };
             break;
           case 'number':
             properties[parameter] = {
               type: 'number',
-              description: 'Provide the relevant value.',
+              description: parameterDescription || 'Provide the relevant value.',
             };
             break;
           case 'number-array':
             properties[parameter] = {
               type: 'array',
-              description: 'Provide an array of numbers.',
+              description: parameterDescription || 'Provide an array of numbers.',
             };
             break;
           case 'string-array':
             properties[parameter] = {
               type: 'array',
-              description: 'Provide an array of strings.',
+              description: parameterDescription || 'Provide an array of strings.',
             };
             break;
           case 'time-string':
             properties[parameter] = {
               type: 'string',
               description:
-                'Provide a time string such as: 1m (1 minute), or 30s (30 seconds).',
+                parameterDescription || 'Provide a time string such as: 1m (1 minute), or 30s (30 seconds).',
             };
             break;
           case 'boolean':
             properties[parameter] = {
               type: 'boolean',
-              description: 'Provide the relevant value in lowercase.',
+              description: parameterDescription || 'Provide the relevant value in lowercase.',
             };
             break;
           default:
             properties[parameter] = {
               type: 'string',
               description:
-                'Report this to the user. This is a bug in the MCP tools definition.',
+                parameterDescription || 'Report this to the user. This is a bug in the MCP tools definition.',
             };
         }
       });

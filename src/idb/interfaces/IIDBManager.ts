@@ -183,7 +183,8 @@ export interface IIDBManager {
     sessionId: string,
     x: number,
     y: number,
-    duration?: number
+    duration?: number,
+    coordinateUnits?: string,
   ): Promise<void>;
 
   /**
@@ -203,7 +204,8 @@ export interface IIDBManager {
     endX: number,
     endY: number,
     duration?: number,
-    delta?: number
+    delta?: number,
+    coordinateUnits?: string
   ): Promise<void>;
 
   /**

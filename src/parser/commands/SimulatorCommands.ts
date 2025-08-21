@@ -33,7 +33,7 @@ export class SimulatorCommands extends BaseCommandDefinition {
         deviceName: (match) => match.groups?.deviceName?.trim(),
       },
       parameterTypes: {
-        deviceName: 'string',
+        deviceName: 'string', // DEV: This could be an enum with discrete device names, but this works for now
         platformVersion: 'string',
         autoboot: 'boolean',
       },

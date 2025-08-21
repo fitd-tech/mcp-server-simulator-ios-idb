@@ -46,12 +46,11 @@ export class OrchestratorToIDB {
           break;
 
         case CommandType.DESCRIBE_POINT:
-          await this.idbManager.describePointElement?.(
+          result = await this.idbManager.describePointElement?.(
             command.parameters.sessionId || sessionId || '',
             command.parameters.x,
             command.parameters.y
           );
-          result = { bundleId: command.parameters.bundleId };
           break;
 
         // Application management commands
@@ -206,9 +205,10 @@ export class OrchestratorToIDB {
           await this.idbManager.tap(
             command.parameters.sessionId || sessionId || '',
             command.parameters.x,
-            command.parameters.y
+            command.parameters.y,
+            command.parameters.coordinateUnits,
           );
-          result = { x: command.parameters.x, y: command.parameters.y };
+          result = { x: command.parameters.x, y: command.parameters.y, coordinateUnits: command.parameters.coordinateUnits };
           break;
 
         case CommandType.SWIPE:
@@ -217,7 +217,8 @@ export class OrchestratorToIDB {
             command.parameters.startX,
             command.parameters.startY,
             command.parameters.endX,
-            command.parameters.endY
+            command.parameters.endY,
+            command.parameters.coordinateUnits,
             // command.parameters.duration
           );
           result = {
@@ -225,6 +226,7 @@ export class OrchestratorToIDB {
             startY: command.parameters.startY,
             endX: command.parameters.endX,
             endY: command.parameters.endY,
+            coordinateUnits: command.parameters.coordinateUnits
           };
           break;
 

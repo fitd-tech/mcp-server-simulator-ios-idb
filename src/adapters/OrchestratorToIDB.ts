@@ -38,6 +38,22 @@ export class OrchestratorToIDB {
 
       // Execute command based on its type
       switch (command.type) {
+        // Accessibility commands
+        case CommandType.DESCRIBE_ELEMENTS:
+          result = await this.idbManager.describeAllElements?.(
+            command.parameters.sessionId || sessionId || '',
+          );
+          break;
+
+        case CommandType.DESCRIBE_POINT:
+          await this.idbManager.describePointElement?.(
+            command.parameters.sessionId || sessionId || '',
+            command.parameters.x,
+            command.parameters.y
+          );
+          result = { bundleId: command.parameters.bundleId };
+          break;
+
         // Application management commands
         case CommandType.INSTALL_APP:
           result = await this.idbManager.installApp(

@@ -11,8 +11,8 @@
 // DEV: Remove tools from the MCP tool list by setting enum values to an empty string here.
 export enum CommandType {
   // Accessbility commands
-  DESCRIBE_ELEMENTS = '', // 'describeElements',
-  DESCRIBE_POINT = '', // 'describePoint',
+  DESCRIBE_ELEMENTS = 'describeElements',
+  DESCRIBE_POINT = 'describePoint',
 
   // Application management commands
   INSTALL_APP = 'installApp',

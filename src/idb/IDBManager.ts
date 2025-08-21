@@ -12,6 +12,7 @@ import {
   SessionConfig,
   ButtonType,
   CrashLogInfo,
+  AccessibilityInfo,
 } from './interfaces/IIDBManager.js';
 
 const execAsync = promisify(exec);
@@ -46,6 +47,30 @@ export class IDBManager implements IIDBManager {
 
   private generateSessionId(): string {
     return `session_${Date.now()}_${this.sessionCounter++}`;
+  }
+
+  async describeAllElements(sessionId: string): Promise<AccessibilityInfo[]> {
+    const udid = this.sessions.get(sessionId);
+    if (!udid) {
+      throw new Error(`Session not found: ${sessionId}`);
+    }
+
+    let command = `idb ui describe-all`;
+    const result = await this.executeCommand(command);
+    const allElements = JSON.parse(result)
+    return allElements
+  }
+
+  async describePointElement(sessionId: string, x: number, y: number): Promise<AccessibilityInfo | null> {
+    const udid = this.sessions.get(sessionId);
+    if (!udid) {
+      throw new Error(`Session not found: ${sessionId}`);
+    }
+
+    let command = `idb ui describe-point ${x} ${y}`;
+    const result = await this.executeCommand(command);
+    const element = JSON.parse(result)
+    return element
   }
 
   async createSimulatorSession(config?: SessionConfig): Promise<string> {
